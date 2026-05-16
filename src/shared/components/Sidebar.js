@@ -1,0 +1,199 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import PropTypes from "prop-types";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/shared/utils/cn";
+import Button from "./Button";
+import { ConfirmModal } from "./Modal";
+
+const navItems = [
+  { href: "/dashboard/endpoint", label: "Endpoint", icon: "api" },
+  { href: "/dashboard/providers", label: "Providers", icon: "dns" },
+  { href: "/dashboard/usage", label: "Usage", icon: "bar_chart" },
+  { href: "/dashboard/quota", label: "Quota Tracker", icon: "data_usage" },
+];
+
+const debugItems = [
+  { href: "/dashboard/console-log", label: "Console Log", icon: "terminal" },
+  { href: "/dashboard/translator", label: "Translator", icon: "translate" },
+];
+
+export default function Sidebar({ onClose }) {
+  const pathname = usePathname();
+  const [showShutdownModal, setShowShutdownModal] = useState(false);
+  const [isShuttingDown, setIsShuttingDown] = useState(false);
+  const [isDisconnected, setIsDisconnected] = useState(false);
+  const [enableTranslator, setEnableTranslator] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then(res => res.json())
+      .then(data => { if (data.enableTranslator) setEnableTranslator(true); })
+      .catch(() => {});
+  }, []);
+
+  const isActive = (href) => {
+    if (href === "/dashboard/endpoint") {
+      return pathname === "/dashboard" || pathname.startsWith("/dashboard/endpoint");
+    }
+    return pathname.startsWith(href);
+  };
+
+  const handleShutdown = async () => {
+    setIsShuttingDown(true);
+    try {
+      await fetch("/api/shutdown", { method: "POST" });
+    } catch (e) {
+      // Expected to fail as server shuts down; ignore error
+    }
+    setIsShuttingDown(false);
+    setShowShutdownModal(false);
+    setIsDisconnected(true);
+  };
+
+  return (
+    <>
+      <aside className="flex w-72 flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl transition-colors duration-300 min-h-full">
+        {/* Traffic lights */}
+        <div className="flex items-center gap-2 px-6 pt-5 pb-2">
+          <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
+          <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
+          <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 px-4 py-2 space-y-0.5 overflow-y-auto custom-scrollbar">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onClose}
+              className={cn(
+                "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group",
+                isActive(item.href)
+                  ? "bg-primary/10 text-primary"
+                  : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+              )}
+            >
+              <span
+                className={cn(
+                  "material-symbols-outlined text-[18px]",
+                  isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
+                )}
+              >
+                {item.icon}
+              </span>
+              <span className="text-[13px] font-medium">{item.label}</span>
+            </Link>
+          ))}
+
+          {/* Debug & Settings section */}
+          <div className="pt-3 mt-2 space-y-0.5">
+            <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
+              System
+            </p>
+
+            {/* Debug items */}
+            {debugItems.map((item) => {
+              const show = item.href !== "/dashboard/translator" || enableTranslator;
+              return show ? (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group",
+                    isActive(item.href)
+                      ? "bg-primary/10 text-primary"
+                      : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "material-symbols-outlined text-[18px]",
+                      isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
+                    )}
+                  >
+                    {item.icon}
+                  </span>
+                  <span className="text-[13px] font-medium">{item.label}</span>
+                </Link>
+              ) : null;
+            })}
+
+            {/* Settings */}
+            <Link
+              href="/dashboard/profile"
+              onClick={onClose}
+              className={cn(
+                "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group",
+                isActive("/dashboard/profile")
+                  ? "bg-primary/10 text-primary"
+                  : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+              )}
+            >
+              <span
+                className={cn(
+                  "material-symbols-outlined text-[18px]",
+                  isActive("/dashboard/profile") ? "fill-1" : "group-hover:text-primary transition-colors"
+                )}
+              >
+                settings
+              </span>
+              <span className="text-[13px] font-medium">Settings</span>
+            </Link>
+          </div>
+        </nav>
+
+        {/* Footer section */}
+        <div className="p-3 border-t border-border-subtle">
+          {/* Shutdown button */}
+          <Button
+            variant="outline"
+            fullWidth
+            icon="power_settings_new"
+            onClick={() => setShowShutdownModal(true)}
+            className="text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300"
+          >
+            Shutdown
+          </Button>
+        </div>
+      </aside>
+
+      {/* Shutdown Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showShutdownModal}
+        onClose={() => setShowShutdownModal(false)}
+        onConfirm={handleShutdown}
+        title="Close Proxy"
+        message="Are you sure you want to close the proxy server?"
+        confirmText="Close"
+        cancelText="Cancel"
+        variant="danger"
+        loading={isShuttingDown}
+      />
+
+      {/* Disconnected Overlay */}
+      {isDisconnected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-6">
+          <div className="text-center p-8">
+            <div className="flex items-center justify-center size-16 rounded-full bg-red-500/20 text-red-500 mx-auto mb-4">
+              <span className="material-symbols-outlined text-[32px]">power_off</span>
+            </div>
+            <h2 className="text-xl font-semibold text-white mb-2">Server Disconnected</h2>
+            <p className="text-text-muted mb-6">The proxy server has been stopped.</p>
+            <Button variant="secondary" onClick={() => globalThis.location.reload()}>
+              Reload Page
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+Sidebar.propTypes = {
+  onClose: PropTypes.func,
+};
