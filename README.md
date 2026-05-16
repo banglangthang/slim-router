@@ -1291,6 +1291,8 @@ Thanks to all contributors who helped make Slim Router better!
 
 ## 🙏 Acknowledgments
 
+Inspired by **9router** — the original AI API routing gateway.
+
 Built on the shoulders of giants:
 
 - **CLIProxyAPI** — original Go implementation that inspired this JavaScript port.
